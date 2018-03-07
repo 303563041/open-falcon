@@ -1,0 +1,140 @@
+---
+- hosts: open-falcon
+  tasks:
+    - name: configure yum epel
+      yum:
+        name: "{{ item }}"
+        state: present
+      with_items:
+        - http://repo.mysql.com/yum/mysql-5.6-community/el/6/x86_64/mysql-community-release-el6-5.noarch.rpm
+        - http://download.fedoraproject.org/pub/epel/6/x86_64/epel-release-6-8.noarch.rpm
+
+    - name: yum install service
+      yum:
+        name: "{{ item }}"
+        state: present
+      with_items:
+        - mysql
+        - mysql-community-server.x86_64
+        - mysql-community-server.x86_64
+        - redis
+        - xfsprogs
+        - MySQL-python
+        - gcc
+        - python-devel
+        - libevent-devel
+        - openldap*
+      tags: yum
+
+    - name: mkfs.xfs /dev/xvdb
+      shell: mkfs.xfs /dev/xvdb
+      tags: mkfs
+    
+    - name: mkdir mount dir sgn and data
+      file:
+        path: "{{ item }}"
+        state: directory
+      with_items:
+        - /sgn
+        - /data
+
+    - name: mount /dev/xvdb /sgn
+      mount:
+        path: "{{ item }}"
+        src: /dev/xvdb
+        state: mounted
+        fstype: xfs
+      with_items:
+        - /sgn
+        - /data
+        - /mnt
+
+    - name: mkdir mnt log
+      file:
+        path: /mnt/logs
+        state: directory
+
+    - name: init redis dir
+      file:
+        path: "{{ item }}"
+        state: directory
+        recurse: yes
+        owner: redis
+        group: redis
+      with_items:
+        - /mnt/logs/redis
+        - /data/redis/6379
+
+    - name: copy my.cnf and redis.conf
+      copy:
+        src: conf/{{ item.name }}
+        dest: "{{ item.path }}"
+      with_items:
+        - { "name": "my.cnf", "path": "/etc/my.cnf" }
+        - { "name": "redis.conf", "path": "/etc/redis.conf"}
+
+    - name: init mysql dir
+      file:
+        path: '{{ item }}'
+        state: directory
+        recurse: yes
+        owner: mysql
+        group: mysql
+      with_items:
+        - /sgn/mysql
+        - /mnt/logs/mysql
+        - /sgn/mysql/data
+        - /sgn/mysql/innodb
+
+    - name: touch mysql error log file
+      file:
+        path: /mnt/logs/mysql/mysql.log
+        state: touch
+        owner: mysql
+        group: mysql
+
+    - name: copy my.cnf to /etc/my.cnf
+      copy:
+        src: conf/my.cnf
+        dest: /etc/my.cnf
+
+    - name: mysqldb init
+      shell: mysql_install_db --defaults-file=/etc/my.cnf --user=mysql
+
+    - name: mysql start
+      service:
+        name: mysqld
+        state: started
+
+    - name: copy redis conf
+      copy:
+        src: conf/redis.conf
+        dest: /etc/redis.conf
+      tags: redis
+
+    - name: restart redis
+      service:
+        name: redis
+        state: restarted
+      tags: redis
+
+    - name: chkconfig redis 345 on
+      service:
+        name: redis
+        enabled: yes
+      tags: redis
+
+    - name: init open-falcon dir
+      file:
+        path: /data/open-falcon
+        state: directory
+      tags: open
+    - name: copy open-falcon server.tgz to remote server
+      copy:
+        src: open-falcon-server.tgz
+        dest: /data/open-falcon/
+      tags: open
+
+
+
+
