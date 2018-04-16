@@ -1,0 +1,18 @@
+- name: mkdir /data/open-falcon
+  file:
+    state: dirctory
+    path: /data/open-falcon
+
+- name: copy agent package to dest hosts and unarchive agent package
+  unarchive:
+    copy: yes
+    src: falcon-agent-qcloud.tgz
+    dest: /data/open-falcon/
+
+- name: template cfg.json
+  template:
+    src: cfg.json
+    dest: /data/open-falcon/agent/config/cfg.json
+
+- name: start open-falcon
+  shell: /data/open-falcon/open-falcon start agent
