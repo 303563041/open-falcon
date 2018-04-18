@@ -1,6 +1,16 @@
+- name: check dir /data/open-falcon
+  stat:
+    path: /data/open-falcon
+  ignore_errors: True
+  register: result
+
+- name: meta end_play
+  meta: end_play
+  when: result.stat.exists == true
+
 - name: mkdir /data/open-falcon
   file:
-    state: dirctory
+    state: directory
     path: /data/open-falcon
 
 - name: copy agent package to dest hosts and unarchive agent package
@@ -15,4 +25,6 @@
     dest: /data/open-falcon/agent/config/cfg.json
 
 - name: start open-falcon
-  shell: /data/open-falcon/open-falcon start agent
+  shell: nohup ./open-falcon start agent
+  args:
+    chdir: /data/open-falcon/
