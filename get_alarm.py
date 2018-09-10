@@ -56,14 +56,38 @@ def call_duty(html_str, service, tags, status,
             flag = False
     return flag
 
+
 def format_msg(info):
     ''' Format the log information. '''
     tg = ""
-    for k, v in info["strategy"]["tags"].items():
-        tg += "%s=%s," % (k, v)
-    msg = "Expr(%s/%s, %s%s%s); the %s/%s current value is %s; This event has lasted %s time" % (info["strategy"]["metric"], tg.strip(','), info["strategy"]["func"], info["strategy"]["operator"], info["strategy"]["rightValue"], info["strategy"]["metric"], tg.strip(','), info["leftValue"], info["currentStep"])
-    service = info["strategy"]["metric"]
-    tags = "townkins:%s" % info["endpoint"]
+    if info.get("expression", ""):
+        for k, v in info["expression"]["tags"].items():
+            tg += "%s=%s," % (k, v)
+        msg = "Expr(%s/%s, %s%s%s); the %s/%s current value is %s; This event has lasted %s time" % (
+            info["expression"]["metric"], tg.strip(','),
+            info["expression"]["func"], info["expression"]["operator"],
+            info["expression"]["rightValue"], info["expression"]["metric"],
+            tg.strip(','), info["leftValue"], info["currentStep"])
+        service = info["expression"]["metric"]
+        if info.get("pushedTags", ""):
+            tags = info["pushedTags"].get(
+                "project", "") + "-" + info["pushedTags"].get(
+                    "release", "") + "-" + info["pushedTags"].get(
+                        "envname", "") + "-" + info["pushedTags"].get(
+                            "role", "")
+        else:
+            tags = info["endpoint"]
+    else:
+        for k, v in info["strategy"]["tags"].items():
+            tg += "%s=%s," % (k, v)
+        msg = "Expr(%s/%s, %s%s%s); the %s/%s current value is %s; This event has lasted %s time" % (
+            info["strategy"]["metric"], tg.strip(','),
+            info["strategy"]["func"], info["strategy"]["operator"],
+            info["strategy"]["rightValue"], info["strategy"]["metric"],
+            tg.strip(','), info["leftValue"], info["currentStep"])
+        service = info["strategy"]["metric"]
+        tags = info["endpoint"]
+
     return msg, tags, service
 
 
@@ -80,7 +104,10 @@ def main():
                     info = json.loads(value)
                     if info["status"] == "PROBLEM":
                         status = 2
-                        msg, tags, service = format_msg(info)
+                        try:
+                            msg, tags, service = format_msg(info)
+                        except Exception:
+                            continue
 
                         # send alarm error msg to duty
                         flag = call_duty(msg, service, tags, status)
@@ -92,7 +119,10 @@ def main():
 
                     elif info["status"] == "OK":
                         status = 0
-                        msg, tags, service = format_msg(info)
+                        try:
+                            msg, tags, service = format_msg(info)
+                        except Exception:
+                            continue
                         # send alarm OK msg to duty
                         flag = call_duty(msg, service, tags, status)
 
@@ -102,8 +132,6 @@ def main():
                             logger.info("%s del OK alarm msg, key: %s, value: %s" % (d, key, value))
     else:
         logger.info("%s no alarm" % d)
-
-
 
 
 if __name__ == "__main__":
